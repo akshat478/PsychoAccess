@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.mad">
+
+    <uses-permission android:name="android.intent.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:label="PsychoAssess"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.MAD">
+
+        <activity android:name=".LoginActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".RegisterActivity" />
+        <activity android:name=".MainActivity" />
+        <activity android:name=".CorsiTestActivity" />
+        <activity android:name=".CardRotationActivity" />
+        <activity android:name=".ReportActivity" />
+        <activity android:name=".AdminActivity" />
+        <activity android:name=".DoctorListActivity" />
+        <activity android:name=".ChatActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MessageListActivity" />
+
+    </application>
+</manifest>
