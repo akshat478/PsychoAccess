@@ -2,8 +2,6 @@ package com.example.mad;
 
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -55,10 +54,11 @@ public class ChatActivity extends AppCompatActivity {
         rvChat.setLayoutManager(new LinearLayoutManager(this));
         rvChat.setAdapter(adapter);
 
-        // Check for report to send
+        // Process report data once and then clear it from intent
         String reportData = getIntent().getStringExtra("REPORT_TO_SEND");
         if (reportData != null) {
             sendReportMessage(reportData);
+            getIntent().removeExtra("REPORT_TO_SEND"); // Prevent re-sending on rotation
         }
 
         loadChatHistory();
@@ -70,7 +70,10 @@ public class ChatActivity extends AppCompatActivity {
         ChatMessage msg = new ChatMessage(senderName, doctorName, reportData, System.currentTimeMillis(), true);
         AppDatabase.databaseWriteExecutor.execute(() -> {
             AppDatabase.getDatabase(this).chatMessageDao().insert(msg);
-            loadChatHistory();
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Report Shared Successfully", Toast.LENGTH_SHORT).show();
+                loadChatHistory();
+            });
         });
     }
 
@@ -80,7 +83,7 @@ public class ChatActivity extends AppCompatActivity {
                     .getChatHistory(senderName, doctorName);
             runOnUiThread(() -> {
                 adapter.setMessages(history);
-                if (history.size() > 0) {
+                if (!history.isEmpty()) {
                     rvChat.scrollToPosition(history.size() - 1);
                 }
             });
