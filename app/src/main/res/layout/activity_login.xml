@@ -80,7 +80,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Password"
-                    android:layout_marginBottom="32dp"
+                    android:layout_marginBottom="24dp"
                     app:passwordToggleEnabled="true"
                     app:startIconDrawable="@android:drawable/ic_lock_idle_lock"
                     app:boxCornerRadiusTopStart="12dp"
@@ -105,6 +105,18 @@
                     app:cornerRadius="16dp"
                     android:backgroundTint="#1976D2"
                     android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBiometric"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="Login with Fingerprint"
+                    android:textAllCaps="false"
+                    android:textColor="#546E7A"
+                    app:icon="@android:drawable/ic_lock_idle_lock"
+                    app:iconTint="#546E7A" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

@@ -5,9 +5,13 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import java.util.concurrent.Executor;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -30,6 +34,10 @@ public class LoginActivity extends AppCompatActivity {
         TextInputEditText etPassword = findViewById(R.id.etPassword);
         MaterialButton btnLogin = findViewById(R.id.btnLogin);
         MaterialButton btnRegister = findViewById(R.id.tvRegister);
+        MaterialButton btnBiometric = findViewById(R.id.btnBiometric);
+
+        // Remove the separate biometric button as it's now part of the password flow
+        btnBiometric.setVisibility(android.view.View.GONE);
 
         btnLogin.setOnClickListener(v -> {
             String username = etUsername.getText().toString().trim();
@@ -47,11 +55,8 @@ public class LoginActivity extends AppCompatActivity {
                         if (user.role.equals("DOCTOR") && !user.isVerified) {
                             Toast.makeText(this, "Wait for Admin Verification", Toast.LENGTH_LONG).show();
                         } else {
-                            SharedPreferences.Editor editor = sharedPref.edit();
-                            editor.putString("USERNAME", user.username);
-                            editor.putString("USER_ROLE", user.role);
-                            editor.apply();
-                            goToMain(user.username, user.role);
+                            // Password correct, now check for Biometric 2FA
+                            checkBiometricEnforcement(user.username, user.role);
                         }
                     } else {
                         Toast.makeText(this, "Invalid Credentials", Toast.LENGTH_SHORT).show();
@@ -62,6 +67,58 @@ public class LoginActivity extends AppCompatActivity {
 
         btnRegister.setOnClickListener(v -> 
             startActivity(new Intent(this, RegisterActivity.class)));
+    }
+
+    private void checkBiometricEnforcement(String username, String role) {
+        SharedPreferences sharedPref = getSharedPreferences("MAD_PREFS", Context.MODE_PRIVATE);
+        boolean isBioEnabled = sharedPref.getBoolean("BIOMETRIC_ENABLED_" + username, false);
+        
+        if (isBioEnabled) {
+            // Force biometric scan after password success
+            startBiometricVerification(username, role);
+        } else {
+            // Proceed normally if not linked yet
+            loginSuccess(username, role);
+        }
+    }
+
+    private void startBiometricVerification(String username, String role) {
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(LoginActivity.this,
+                executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                super.onAuthenticationSucceeded(result);
+                loginSuccess(username, role);
+            }
+
+            @Override
+            public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                Toast.makeText(LoginActivity.this, "Biometric verification failed: " + errString, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onAuthenticationFailed() {
+                super.onAuthenticationFailed();
+                Toast.makeText(LoginActivity.this, "Fingerprint not recognized", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Security Verification")
+                .setSubtitle("Scan fingerprint to confirm it is you")
+                .setNegativeButtonText("Cancel")
+                .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
+    private void loginSuccess(String username, String role) {
+        SharedPreferences sharedPref = getSharedPreferences("MAD_PREFS", Context.MODE_PRIVATE);
+        sharedPref.edit().putString("USERNAME", username).putString("USER_ROLE", role).apply();
+        goToMain(username, role);
     }
 
     private void goToMain(String username, String role) {

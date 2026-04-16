@@ -1,12 +1,18 @@
 package com.example.mad;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import java.util.concurrent.Executor;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -32,10 +38,9 @@ public class RegisterActivity extends AppCompatActivity {
 
             String roleText = ((RadioButton) findViewById(checkedId)).getText().toString();
             String role = roleText.equalsIgnoreCase("Doctor") ? "DOCTOR" : "USER";
-            boolean isVerified = role.equals("USER"); // Doctors need admin approval
+            boolean isVerified = role.equals("USER"); 
 
             AppDatabase.databaseWriteExecutor.execute(() -> {
-                // Check if user already exists
                 User existing = AppDatabase.getDatabase(this).userDao().getUserByName(username);
                 if (existing != null) {
                     runOnUiThread(() -> Toast.makeText(this, "Username already taken", Toast.LENGTH_SHORT).show());
@@ -45,11 +50,38 @@ public class RegisterActivity extends AppCompatActivity {
                 User newUser = new User(username, password, role, isVerified);
                 AppDatabase.getDatabase(this).userDao().register(newUser);
                 
-                runOnUiThread(() -> {
-                    Toast.makeText(RegisterActivity.this, "Registration Successful!", Toast.LENGTH_SHORT).show();
-                    finish();
-                });
+                runOnUiThread(() -> promptBiometricSetup(username));
             });
         });
+    }
+
+    private void promptBiometricSetup(String username) {
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(RegisterActivity.this,
+                executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                super.onAuthenticationSucceeded(result);
+                SharedPreferences sharedPref = getSharedPreferences("MAD_PREFS", Context.MODE_PRIVATE);
+                sharedPref.edit().putBoolean("BIOMETRIC_ENABLED_" + username, true).apply();
+                Toast.makeText(RegisterActivity.this, "Biometrics linked!", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+
+            @Override
+            public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                Toast.makeText(RegisterActivity.this, "Registration successful (without biometrics)", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Link Fingerprint")
+                .setSubtitle("Use your fingerprint for faster login next time")
+                .setNegativeButtonText("Skip")
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
     }
 }

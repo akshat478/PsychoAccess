@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "com.example.mad"
-    compileSdk = 34 // Lowered to 34 for better stability with older JDKs
+    compileSdk = 34 
 
     defaultConfig {
         applicationId = "com.example.mad"
@@ -38,11 +38,14 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     
+    // Biometric Security
+    implementation(libs.androidx.biometric)
+
     // Room Database
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)
 
-    // Sockets (Direct String notation to fix "io" error)
+    // Sockets
     implementation("io.socket:socket.io-client:2.1.0")
 
     testImplementation(libs.junit)

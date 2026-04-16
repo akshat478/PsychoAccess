@@ -4,16 +4,21 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.card.MaterialCardView;
+import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
     private String currentUser;
     private String role;
+    private TextToSpeech tts;
+    private boolean isTtsEnabled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,16 +26,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         SharedPreferences sharedPref = getSharedPreferences("MAD_PREFS", Context.MODE_PRIVATE);
-        
+        isTtsEnabled = sharedPref.getBoolean("IS_TTS_ENABLED", false);
+
         role = getIntent().getStringExtra("USER_ROLE");
-        if (role == null) {
-            role = sharedPref.getString("USER_ROLE", null);
-        }
-        
+        if (role == null) role = sharedPref.getString("USER_ROLE", null);
         currentUser = getIntent().getStringExtra("USERNAME");
-        if (currentUser == null) {
-            currentUser = sharedPref.getString("USERNAME", null);
-        }
+        if (currentUser == null) currentUser = sharedPref.getString("USERNAME", null);
+
+        tts = new TextToSpeech(this, this);
 
         TextView tvWelcome = findViewById(R.id.tvWelcome);
         MaterialCardView cardAdmin = findViewById(R.id.cardAdminPanel);
@@ -38,55 +41,60 @@ public class MainActivity extends AppCompatActivity {
         MaterialCardView cardViewMessages = findViewById(R.id.cardViewMessages);
         MaterialCardView cardMyRecords = findViewById(R.id.cardMyRecords);
         MaterialCardView cardWcst = findViewById(R.id.cardWcst);
+        MaterialCardView cardSopt = findViewById(R.id.cardSopt);
         
-        Button btnAdmin = findViewById(R.id.btnAdminPanel);
-        Button btnCorsi = findViewById(R.id.btnCorsi);
-        Button btnRotation = findViewById(R.id.btnRotation);
-        Button btnWcst = findViewById(R.id.btnWcst);
-        Button btnMessageDoctor = findViewById(R.id.btnMessageDoctor);
-        Button btnViewMessages = findViewById(R.id.btnViewMessages);
-        Button btnMyRecords = findViewById(R.id.btnMyRecords);
-        ImageButton btnLogout = findViewById(R.id.btnLogout);
+        ImageButton btnTtsToggle = findViewById(R.id.btnTtsToggle);
+        updateTtsIcon(btnTtsToggle);
 
         tvWelcome.setText("Welcome, " + (currentUser != null ? currentUser : "User"));
 
-        // Ensure the correct panel is visible based on role
         if ("ADMIN".equals(role)) {
             cardAdmin.setVisibility(View.VISIBLE);
         } else if ("USER".equals(role)) {
             cardMessageDoctor.setVisibility(View.VISIBLE);
             cardMyRecords.setVisibility(View.VISIBLE);
             cardWcst.setVisibility(View.VISIBLE);
+            cardSopt.setVisibility(View.VISIBLE);
         } else if ("DOCTOR".equals(role)) {
             cardViewMessages.setVisibility(View.VISIBLE);
         }
 
-        btnCorsi.setOnClickListener(v -> startActivity(new Intent(this, CorsiTestActivity.class)));
-        btnRotation.setOnClickListener(v -> startActivity(new Intent(this, CardRotationActivity.class)));
-        btnWcst.setOnClickListener(v -> startActivity(new Intent(this, WcstActivity.class)));
-        btnAdmin.setOnClickListener(v -> startActivity(new Intent(this, AdminActivity.class)));
+        btnTtsToggle.setOnClickListener(v -> {
+            isTtsEnabled = !isTtsEnabled;
+            sharedPref.edit().putBoolean("IS_TTS_ENABLED", isTtsEnabled).apply();
+            updateTtsIcon(btnTtsToggle);
+            String msg = isTtsEnabled ? "Accessibility mode enabled." : "Accessibility mode disabled";
+            speak(msg);
+        });
 
-        btnMessageDoctor.setOnClickListener(v -> {
+        findViewById(R.id.btnCorsi).setOnClickListener(v -> startActivity(new Intent(this, CorsiTestActivity.class)));
+        findViewById(R.id.btnRotation).setOnClickListener(v -> startActivity(new Intent(this, CardRotationActivity.class)));
+        findViewById(R.id.btnWcst).setOnClickListener(v -> startActivity(new Intent(this, WcstInstructionsActivity.class)));
+        findViewById(R.id.btnSopt).setOnClickListener(v -> startActivity(new Intent(this, SoptActivity.class)));
+        findViewById(R.id.btnAdminPanel).setOnClickListener(v -> startActivity(new Intent(this, AdminActivity.class)));
+        findViewById(R.id.btnMessageDoctor).setOnClickListener(v -> {
             Intent intent = new Intent(this, DoctorListActivity.class);
             intent.putExtra("USERNAME", currentUser);
             startActivity(intent);
         });
-
-        btnViewMessages.setOnClickListener(v -> {
+        findViewById(R.id.btnViewMessages).setOnClickListener(v -> {
             Intent intent = new Intent(this, MessageListActivity.class);
             intent.putExtra("USERNAME", currentUser);
             startActivity(intent);
         });
-
-        btnMyRecords.setOnClickListener(v -> {
-            Intent intent = new Intent(this, MyRecordsActivity.class);
-            startActivity(intent);
-        });
-
-        btnLogout.setOnClickListener(v -> {
+        findViewById(R.id.btnMyRecords).setOnClickListener(v -> startActivity(new Intent(this, MyRecordsActivity.class)));
+        findViewById(R.id.btnLogout).setOnClickListener(v -> {
             sharedPref.edit().clear().apply();
             startActivity(new Intent(this, LoginActivity.class));
             finish();
         });
     }
+
+    private void updateTtsIcon(ImageButton btn) {
+        btn.setImageResource(isTtsEnabled ? android.R.drawable.ic_lock_silent_mode : android.R.drawable.ic_lock_silent_mode_off);
+    }
+
+    @Override public void onInit(int status) { if (status == TextToSpeech.SUCCESS) tts.setLanguage(Locale.US); }
+    private void speak(String text) { if (tts != null) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null); }
+    @Override protected void onDestroy() { if (tts != null) { tts.stop(); tts.shutdown(); } super.onDestroy(); }
 }
