@@ -13,6 +13,7 @@ public class DoctorListActivity extends AppCompatActivity {
     private List<String> doctorNames = new ArrayList<>();
     private ArrayAdapter<String> adapter;
     private String currentUser;
+    private String reportToSend;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,6 +21,8 @@ public class DoctorListActivity extends AppCompatActivity {
         setContentView(R.layout.activity_doctor_list);
 
         currentUser = getIntent().getStringExtra("USERNAME");
+        reportToSend = getIntent().getStringExtra("REPORT_TO_SEND");
+        
         ListView lv = findViewById(R.id.lvDoctorsList);
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, doctorNames);
         lv.setAdapter(adapter);
@@ -31,7 +34,11 @@ public class DoctorListActivity extends AppCompatActivity {
             intent.putExtra("DOCTOR_NAME", doctors.get(position).username);
             intent.putExtra("SENDER_NAME", currentUser);
             intent.putExtra("IS_DOCTOR_VIEW", false);
+            if (reportToSend != null) {
+                intent.putExtra("REPORT_TO_SEND", reportToSend);
+            }
             startActivity(intent);
+            finish(); // Go back after selecting doctor
         });
     }
 

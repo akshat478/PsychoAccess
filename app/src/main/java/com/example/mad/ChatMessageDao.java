@@ -18,4 +18,7 @@ public interface ChatMessageDao {
 
     @Query("SELECT DISTINCT sender FROM chat_messages WHERE receiver = :doctorName")
     List<String> getUsersWhoMessaged(String doctorName);
+
+    @Query("SELECT DISTINCT CASE WHEN sender = :me THEN receiver ELSE sender END FROM chat_messages WHERE sender = :me OR receiver = :me")
+    List<String> getAllChatPartners(String me);
 }

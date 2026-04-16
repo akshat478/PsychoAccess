@@ -1,5 +1,4 @@
 package com.example.mad;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
@@ -27,8 +26,8 @@ public class MessageListActivity extends AppCompatActivity {
 
         lv.setOnItemClickListener((parent, view, position, id) -> {
             Intent intent = new Intent(this, ChatActivity.class);
-            intent.putExtra("DOCTOR_NAME", doctorName); // Current doctor
-            intent.putExtra("SENDER_NAME", userList.get(position)); // The user who messaged
+            intent.putExtra("DOCTOR_NAME", doctorName);
+            intent.putExtra("SENDER_NAME", userList.get(position));
             intent.putExtra("IS_DOCTOR_VIEW", true);
             startActivity(intent);
         });
@@ -36,10 +35,19 @@ public class MessageListActivity extends AppCompatActivity {
 
     private void loadUsers() {
         AppDatabase.databaseWriteExecutor.execute(() -> {
-            List<String> users = AppDatabase.getDatabase(this).chatMessageDao().getUsersWhoMessaged(doctorName);
-            userList.clear();
-            userList.addAll(users);
-            runOnUiThread(() -> adapter.notifyDataSetChanged());
+            // Get all unique users who have sent a message to this doctor
+            List<String> users = AppDatabase.getDatabase(this).chatMessageDao().getAllChatPartners(doctorName);
+            runOnUiThread(() -> {
+                userList.clear();
+                userList.addAll(users);
+                adapter.notifyDataSetChanged();
+            });
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadUsers(); // Refresh when returning to the screen
     }
 }

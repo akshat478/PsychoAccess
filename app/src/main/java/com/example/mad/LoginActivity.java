@@ -26,11 +26,6 @@ public class LoginActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
 
-        // Re-initialize Sockets
-        String serverIp = "192.168.1.3"; 
-        SocketHandler.setSocket(serverIp);
-        SocketHandler.establishConnection();
-
         TextInputEditText etUsername = findViewById(R.id.etUsername);
         TextInputEditText etPassword = findViewById(R.id.etPassword);
         MaterialButton btnLogin = findViewById(R.id.btnLogin);

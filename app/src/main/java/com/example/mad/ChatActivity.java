@@ -1,45 +1,48 @@
 package com.example.mad;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.widget.NestedScrollView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-
-import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
+import java.util.Locale;
 
 public class ChatActivity extends AppCompatActivity {
     private String doctorName;
     private String senderName;
-    private TextView tvChatLogs;
+    private RecyclerView rvChat;
+    private ChatAdapter adapter;
     private EditText etMessage;
-    private NestedScrollView scrollView;
     private boolean isDoctorView;
-    private Socket mSocket;
+    private String currentUsername;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_chat);
-
-        mSocket = SocketHandler.getSocket();
+        setContentView(R.layout.activity_chat_new);
 
         doctorName = getIntent().getStringExtra("DOCTOR_NAME");
         senderName = getIntent().getStringExtra("SENDER_NAME");
         isDoctorView = getIntent().getBooleanExtra("IS_DOCTOR_VIEW", false);
+        currentUsername = isDoctorView ? doctorName : senderName;
 
-        tvChatLogs = findViewById(R.id.tvChatLogs);
+        rvChat = findViewById(R.id.rvChat);
         etMessage = findViewById(R.id.etMessage);
-        scrollView = findViewById(R.id.scrollView);
         FloatingActionButton btnSend = findViewById(R.id.btnSend);
 
         if (isDoctorView) {
@@ -48,56 +51,40 @@ public class ChatActivity extends AppCompatActivity {
             ((TextView) findViewById(R.id.tvChatWith)).setText("Chat with Dr. " + doctorName);
         }
 
-        // 1. Load Chat History from Local Database
+        adapter = new ChatAdapter(new ArrayList<>());
+        rvChat.setLayoutManager(new LinearLayoutManager(this));
+        rvChat.setAdapter(adapter);
+
+        // Check for report to send
+        String reportData = getIntent().getStringExtra("REPORT_TO_SEND");
+        if (reportData != null) {
+            sendReportMessage(reportData);
+        }
+
         loadChatHistory();
 
-        // 2. Listen for incoming messages
-        listenForMessages();
-
         btnSend.setOnClickListener(v -> sendMessage());
+    }
+
+    private void sendReportMessage(String reportData) {
+        ChatMessage msg = new ChatMessage(senderName, doctorName, reportData, System.currentTimeMillis(), true);
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            AppDatabase.getDatabase(this).chatMessageDao().insert(msg);
+            loadChatHistory();
+        });
     }
 
     private void loadChatHistory() {
         AppDatabase.databaseWriteExecutor.execute(() -> {
             List<ChatMessage> history = AppDatabase.getDatabase(this).chatMessageDao()
                     .getChatHistory(senderName, doctorName);
-            
             runOnUiThread(() -> {
-                tvChatLogs.setText("");
-                for (ChatMessage msg : history) {
-                    String displaySender = msg.sender.equals(isDoctorView ? doctorName : senderName) ? "Me" : msg.sender;
-                    tvChatLogs.append("\n" + displaySender + ": " + msg.content);
+                adapter.setMessages(history);
+                if (history.size() > 0) {
+                    rvChat.scrollToPosition(history.size() - 1);
                 }
-                scrollToBottom();
             });
         });
-    }
-
-    private void listenForMessages() {
-        if (mSocket == null) return;
-
-        mSocket.on("receive_message", args -> runOnUiThread(() -> {
-            JSONObject data = (JSONObject) args[0];
-            try {
-                String sender = data.getString("sender");
-                String receiver = data.getString("receiver");
-                String content = data.getString("content");
-
-                // Only show if it's for this conversation
-                if ((sender.equals(doctorName) && receiver.equals(senderName)) ||
-                    (sender.equals(senderName) && receiver.equals(doctorName))) {
-                    
-                    // Save received message to DB
-                    saveMessageToDb(sender, receiver, content);
-                    
-                    String displaySender = sender.equals(isDoctorView ? doctorName : senderName) ? "Me" : sender;
-                    tvChatLogs.append("\n" + displaySender + ": " + content);
-                    scrollToBottom();
-                }
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }));
     }
 
     private void sendMessage() {
@@ -107,46 +94,108 @@ public class ChatActivity extends AppCompatActivity {
         String actualSender = isDoctorView ? doctorName : senderName;
         String actualReceiver = isDoctorView ? senderName : doctorName;
 
-        // 1. Save to Local DB
-        saveMessageToDb(actualSender, actualReceiver, content);
-
-        // 2. Emit to Socket Server
-        if (mSocket != null && mSocket.connected()) {
-            JSONObject messageData = new JSONObject();
-            try {
-                messageData.put("sender", actualSender);
-                messageData.put("receiver", actualReceiver);
-                messageData.put("content", content);
-                messageData.put("timestamp", System.currentTimeMillis());
-                mSocket.emit("send_message", messageData);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // 3. Update UI
-        tvChatLogs.append("\nMe: " + content);
-        etMessage.setText("");
-        scrollToBottom();
-    }
-
-    private void saveMessageToDb(String sender, String receiver, String content) {
-        ChatMessage msg = new ChatMessage(sender, receiver, content, System.currentTimeMillis());
+        ChatMessage msg = new ChatMessage(actualSender, actualReceiver, content, System.currentTimeMillis(), false);
+        
         AppDatabase.databaseWriteExecutor.execute(() -> {
             AppDatabase.getDatabase(this).chatMessageDao().insert(msg);
+            runOnUiThread(() -> {
+                etMessage.setText("");
+                loadChatHistory();
+            });
         });
     }
 
-    private void scrollToBottom() {
-        new Handler(Looper.getMainLooper()).postDelayed(() ->
-                scrollView.fullScroll(NestedScrollView.FOCUS_DOWN), 100);
-    }
+    private class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int TYPE_TEXT = 0;
+        private static final int TYPE_REPORT = 1;
+        private List<ChatMessage> messages;
+        private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (mSocket != null) {
-            mSocket.off("receive_message");
+        public ChatAdapter(List<ChatMessage> messages) {
+            this.messages = messages;
+        }
+
+        public void setMessages(List<ChatMessage> messages) {
+            this.messages = messages;
+            notifyDataSetChanged();
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            return messages.get(position).isReport ? TYPE_REPORT : TYPE_TEXT;
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == TYPE_REPORT) {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_chat_report, parent, false);
+                return new ReportViewHolder(view);
+            } else {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_chat_text, parent, false);
+                return new TextViewHolder(view);
+            }
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            ChatMessage msg = messages.get(position);
+            if (holder instanceof ReportViewHolder) {
+                ((ReportViewHolder) holder).bind(msg);
+            } else if (holder instanceof TextViewHolder) {
+                ((TextViewHolder) holder).bind(msg);
+            }
+        }
+
+        @Override
+        public int getItemCount() { return messages.size(); }
+
+        class TextViewHolder extends RecyclerView.ViewHolder {
+            TextView tvMsg, tvTime;
+            LinearLayout container;
+
+            public TextViewHolder(@NonNull View itemView) {
+                super(itemView);
+                tvMsg = itemView.findViewById(R.id.tvMessage);
+                tvTime = itemView.findViewById(R.id.tvTime);
+                container = itemView.findViewById(R.id.container);
+            }
+
+            void bind(ChatMessage msg) {
+                tvMsg.setText(msg.content);
+                tvTime.setText(timeFormat.format(new Date(msg.timestamp)));
+                boolean isMe = msg.sender.equals(currentUsername);
+                container.setGravity(isMe ? Gravity.END : Gravity.START);
+                tvMsg.setBackgroundResource(isMe ? R.drawable.bg_bubble_me : R.drawable.bg_bubble_other);
+                tvMsg.setTextColor(isMe ? Color.WHITE : Color.BLACK);
+            }
+        }
+
+        class ReportViewHolder extends RecyclerView.ViewHolder {
+            TextView tvType, tvScore, tvFeedback, tvTime;
+            LinearLayout container;
+
+            public ReportViewHolder(@NonNull View itemView) {
+                super(itemView);
+                tvType = itemView.findViewById(R.id.tvReportType);
+                tvScore = itemView.findViewById(R.id.tvReportScore);
+                tvFeedback = itemView.findViewById(R.id.tvReportFeedback);
+                tvTime = itemView.findViewById(R.id.tvReportTime);
+                container = itemView.findViewById(R.id.reportContainer);
+            }
+
+            void bind(ChatMessage msg) {
+                String data = msg.content.replace("REPORT_DATA:", "");
+                String[] parts = data.split("\\|");
+                if (parts.length >= 3) {
+                    tvType.setText(parts[0] + " VERIFIED REPORT");
+                    tvScore.setText("Score: " + parts[1]);
+                    tvFeedback.setText(parts[2]);
+                }
+                tvTime.setText(timeFormat.format(new Date(msg.timestamp)));
+                boolean isMe = msg.sender.equals(currentUsername);
+                container.setGravity(isMe ? Gravity.END : Gravity.START);
+            }
         }
     }
 }
