@@ -20,6 +20,7 @@
         <activity android:name=".MainActivity" />
         <activity android:name=".CorsiTestActivity" />
         <activity android:name=".CardRotationActivity" />
+        <activity android:name=".WcstActivity" />
         <activity android:name=".ReportActivity" />
         <activity android:name=".AdminActivity" />
         <activity android:name=".DoctorListActivity" />

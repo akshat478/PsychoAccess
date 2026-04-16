@@ -12,6 +12,7 @@ public class AssessmentReport {
     public String testType;
     public String score;
     public String feedback;
+    public String detailedMetrics; // JSON string for complex tests like WCST
     public long timestamp;
     public boolean isShared;
 
@@ -22,5 +23,6 @@ public class AssessmentReport {
         this.feedback = feedback;
         this.timestamp = timestamp;
         this.isShared = false;
+        this.detailedMetrics = null;
     }
 }

@@ -22,7 +22,6 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPref = getSharedPreferences("MAD_PREFS", Context.MODE_PRIVATE);
         
-        // Try to get data from Intent first (from Login), then fallback to SharedPreferences (from ReportActivity restart)
         role = getIntent().getStringExtra("USER_ROLE");
         if (role == null) {
             role = sharedPref.getString("USER_ROLE", null);
@@ -38,10 +37,12 @@ public class MainActivity extends AppCompatActivity {
         MaterialCardView cardMessageDoctor = findViewById(R.id.cardMessageDoctor);
         MaterialCardView cardViewMessages = findViewById(R.id.cardViewMessages);
         MaterialCardView cardMyRecords = findViewById(R.id.cardMyRecords);
+        MaterialCardView cardWcst = findViewById(R.id.cardWcst);
         
         Button btnAdmin = findViewById(R.id.btnAdminPanel);
         Button btnCorsi = findViewById(R.id.btnCorsi);
         Button btnRotation = findViewById(R.id.btnRotation);
+        Button btnWcst = findViewById(R.id.btnWcst);
         Button btnMessageDoctor = findViewById(R.id.btnMessageDoctor);
         Button btnViewMessages = findViewById(R.id.btnViewMessages);
         Button btnMyRecords = findViewById(R.id.btnMyRecords);
@@ -55,12 +56,14 @@ public class MainActivity extends AppCompatActivity {
         } else if ("USER".equals(role)) {
             cardMessageDoctor.setVisibility(View.VISIBLE);
             cardMyRecords.setVisibility(View.VISIBLE);
+            cardWcst.setVisibility(View.VISIBLE);
         } else if ("DOCTOR".equals(role)) {
             cardViewMessages.setVisibility(View.VISIBLE);
         }
 
         btnCorsi.setOnClickListener(v -> startActivity(new Intent(this, CorsiTestActivity.class)));
         btnRotation.setOnClickListener(v -> startActivity(new Intent(this, CardRotationActivity.class)));
+        btnWcst.setOnClickListener(v -> startActivity(new Intent(this, WcstActivity.class)));
         btnAdmin.setOnClickListener(v -> startActivity(new Intent(this, AdminActivity.class)));
 
         btnMessageDoctor.setOnClickListener(v -> {
